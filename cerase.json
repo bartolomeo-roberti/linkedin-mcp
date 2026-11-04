@@ -12,7 +12,7 @@
     "browser"
   ],
   "install": {
-    "image": "ghcr.io/bartolomeo-roberti/linkedin-mcp:main"
+    "image": "ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:2f5d4e93c749f79ba23240ca20c0386d303765c8bbf227c755eb8d8191a395c7"
   },
   "hosts": [
     "linkedin.com",

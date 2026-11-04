@@ -47,10 +47,7 @@ command and the viewer port.
 The publish workflow pushes `ghcr.io/bartolomeo-roberti/linkedin-mcp` with the
 tags `main` and `sha-<short>`.
 
-`cerase.json` names the `main` tag because the workflow cannot know the digest
-before the first publish. After the first publish, replace the tag with
-`ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:<digest>` and update the digest
-on each release.
+`cerase.json` pins the image published by the first run, `ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:2f5d4e93c749f79ba23240ca20c0386d303765c8bbf227c755eb8d8191a395c7`. After a new publish, copy the new digest from the workflow summary into `cerase.json`.
 
 The manifest declares `hosts: ["*"]` because the browser's requests are not
 limited to a fixed host list. Narrow it once the login and browsing hosts are
