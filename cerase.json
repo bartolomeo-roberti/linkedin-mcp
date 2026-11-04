@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "namespace": "reale.errante",
+  "name": "linkedin",
+  "type": "connector",
+  "display_name": "LinkedIn",
+  "description": "Unofficial LinkedIn connector for personal use. You log in with your own LinkedIn session; LinkedIn's terms may restrict automation.",
+  "license": "Apache-2.0",
+  "tags": [
+    "linkedin",
+    "social",
+    "browser"
+  ],
+  "install": {
+    "image": "ghcr.io/bartolomeo-roberti/linkedin-mcp:main"
+  },
+  "hosts": [
+    "linkedin.com",
+    "*.linkedin.com",
+    "*.licdn.com"
+  ],
+  "auth": {
+    "kind": "none"
+  }
+}

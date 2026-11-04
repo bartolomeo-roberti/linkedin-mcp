@@ -1,0 +1,7 @@
+This repository packages the third-party stickerdaniel/linkedin-mcp-server
+(https://github.com/stickerdaniel/linkedin-mcp-server), Copyright the
+stickerdaniel/linkedin-mcp-server authors, licensed under the Apache License,
+Version 2.0. The upstream image is used as the base of the image built here;
+no upstream source is copied into this repository. The Apache-2.0 licence text
+is in LICENSE. This repository is not affiliated with or endorsed by the
+upstream author or LinkedIn.
