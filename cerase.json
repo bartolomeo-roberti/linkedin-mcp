@@ -3,8 +3,8 @@
   "namespace": "reale.errante",
   "name": "linkedin",
   "type": "connector",
-  "display_name": "LinkedIn",
-  "description": "Unofficial LinkedIn connector for personal use. You log in with your own LinkedIn session; LinkedIn's terms may restrict automation.",
+  "display_name": "LinkedIn - Personal use",
+  "description": "LinkedIn connector built on stickerdaniel/linkedin-mcp-server. You log in with your own LinkedIn session; LinkedIn's terms may restrict automation.",
   "license": "Apache-2.0",
   "tags": [
     "linkedin",

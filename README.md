@@ -8,7 +8,7 @@ bridge that Cerase expects from an `image` connector.
 
 ## Status
 
-This is an unofficial package for personal use. It is not affiliated with
+This package is not endorsed by or affiliated with
 LinkedIn or with the upstream author. You log in with your own LinkedIn session,
 and LinkedIn's terms may restrict automated access. Use it only on an account
 you are allowed to automate.
