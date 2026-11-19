@@ -8,7 +8,7 @@ bridge that Cerase expects from an `image` connector.
 
 ## Status
 
-Not installable yet. The manifest is kept as `cerase.draft.json` and is renamed `cerase.json` when Cerase has a browser login step and a volume that keeps the session; until then a connector declared with no account would be shared by every assistant of a tenant. 
+Not installable yet. The manifest is kept as `cerase.json` and is renamed `cerase.json` when Cerase has a browser login step and a volume that keeps the session; until then a connector declared with no account would be shared by every assistant of a tenant. 
 This package is not endorsed by or affiliated with
 LinkedIn or with the upstream author. You log in with your own LinkedIn session,
 and LinkedIn's terms may restrict automated access. Use it only on an account
@@ -31,12 +31,7 @@ session in `/home/pwuser/.linkedin-mcp`. Its login flow opens a browser on a
 virtual display and serves a noVNC page so a person can complete LinkedIn's login
 there; the session is then reused from that directory.
 
-Cerase does not provide that step yet. An image connector is started without a
-login flow and without a volume, so a fresh container has no session and the
-LinkedIn tools cannot act. This is tracked in Cerase as
-`M-A-CONNECTOR-IN-IMAGE-MODE-KEEPS-A-VOLUME-1` and
-`M-A-GUIDED-LOGIN-STEP-IS-IN-THE-CONSOLE-1`. Until those land, the connector can
-be built and started, but not used for authenticated calls.
+Cerase runs the image once with `--login --login-viewer` and shows the viewer page in the console. The image patches noVNC's `vnc_lite.html` so the WebSocket address is built from the page's own location, which lets the viewer work behind the console's path prefix. Without arguments the image is the MCP runner.
 
 To try the login outside Cerase, run the upstream image with a host directory
 mounted at `/home/pwuser/.linkedin-mcp`, complete the login through the viewer,
@@ -48,7 +43,7 @@ command and the viewer port.
 The publish workflow pushes `ghcr.io/bartolomeo-roberti/linkedin-mcp` with the
 tags `main` and `sha-<short>`.
 
-`cerase.draft.json` pins the image published by the first run, `ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:2f5d4e93c749f79ba23240ca20c0386d303765c8bbf227c755eb8d8191a395c7`. After a new publish, copy the new digest from the workflow summary into `cerase.draft.json`.
+`cerase.json` pins the image published by the first run, `ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:2f5d4e93c749f79ba23240ca20c0386d303765c8bbf227c755eb8d8191a395c7`. After a new publish, copy the new digest from the workflow summary into `cerase.json`.
 
 The manifest lists the hosts the runner may reach: `linkedin.com`, `*.linkedin.com` and `*.licdn.com`.
 

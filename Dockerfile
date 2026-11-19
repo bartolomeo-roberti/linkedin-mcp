@@ -21,6 +21,30 @@ RUN /usr/local/bin/python3 -m venv /opt/bridge \
 # and tools/list through the bridge.
 COPY --chmod=755 scripts/runner-gate.py /opt/cerase/runner-gate.py
 COPY --chmod=755 scripts/healthcheck.py /opt/cerase/healthcheck.py
+COPY --chmod=755 scripts/entrypoint.sh /opt/cerase/entrypoint.sh
+
+# The console serves the login viewer through its reverse proxy under a path
+# prefix. noVNC's page builds the WebSocket address from a root path, which
+# cannot be reached behind that prefix; address it relative to the page
+# instead. The build fails unless the pinned page is exactly the one this
+# replacement expects.
+RUN before=$(grep -cF "url += '/' + path;" /usr/share/novnc/vnc_lite.html) \
+    && [ "$before" -eq 1 ] \
+    && sed -i "s|url += '/' + path;|url += location.pathname.replace(/[^\\\\/]*$/, '') + path;|" /usr/share/novnc/vnc_lite.html \
+    && after=$(grep -cF "url += location.pathname.replace(/[^\\/]*$/, '') + path;" /usr/share/novnc/vnc_lite.html) \
+    && [ "$after" -eq 1 ]
+
+# The browser is already in the image at /opt/patchright, but upstream's first
+# login writes an install marker into the profile root and runs the installer
+# when it is missing. The console's root is read-only, so that installer cannot
+# create its lock beside the browser and the login would never reach the
+# viewer. This marker describes the pinned browser that is already present, and
+# Docker seeds it into a fresh profile volume.
+RUN printf '%s\n' \
+        '{"browser_name":"chromium","installer_name":"patchright","version":3,"browsers_path":"/opt/patchright"}' \
+        > /home/pwuser/.linkedin-mcp/browser-install.json \
+    && chown pwuser:pwuser /home/pwuser/.linkedin-mcp/browser-install.json \
+    && chmod 600 /home/pwuser/.linkedin-mcp/browser-install.json
 
 # The upstream image runs as pwuser and keeps its server on PATH through
 # /app/.venv/bin. The bridge is called by absolute path, so `python` below is
@@ -41,7 +65,7 @@ HEALTHCHECK --interval=5m --start-interval=5s --timeout=10s --start-period=60s -
     CMD python3 /opt/cerase/runner-gate.py --probe && python3 /opt/cerase/healthcheck.py || exit 1
 
 # The upstream server speaks MCP over stdio. mcp-proxy bridges it to HTTP on
-# loopback and the gate exposes that bridge on :3000 for the gateway.
-ENTRYPOINT ["python3", "/opt/cerase/runner-gate.py", "--", "/opt/bridge/bin/mcp-proxy", \
-    "--port", "3001", "--host", "127.0.0.1", "--pass-environment", "--", \
-    "python", "-m", "linkedin_mcp_server"]
+# loopback and the gate exposes that bridge on :3000 for the gateway. With
+# `--login` the entrypoint hands over to the upstream supervisor instead, so
+# the guided browser sign-in gets a display and the noVNC viewer.
+ENTRYPOINT ["/opt/cerase/entrypoint.sh"]
