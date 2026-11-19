@@ -24,14 +24,14 @@ COPY --chmod=755 scripts/healthcheck.py /opt/cerase/healthcheck.py
 COPY --chmod=755 scripts/entrypoint.sh /opt/cerase/entrypoint.sh
 
 # The console serves the login viewer through its reverse proxy under a path
-# prefix. noVNC's page builds the WebSocket address from a root path, which
+# prefix. The login page builds the WebSocket address from a root path, which
 # cannot be reached behind that prefix; address it relative to the page
 # instead. The build fails unless the pinned page is exactly the one this
 # replacement expects.
-RUN before=$(grep -cF "url += '/' + path;" /usr/share/novnc/vnc_lite.html) \
+RUN before=$(grep -cF '${location.host}/websockify?token=' /usr/share/novnc/login.html) \
     && [ "$before" -eq 1 ] \
-    && sed -i "s|url += '/' + path;|url += location.pathname.replace(/[^\\\\/]*$/, '') + path;|" /usr/share/novnc/vnc_lite.html \
-    && after=$(grep -cF "url += location.pathname.replace(/[^\\/]*$/, '') + path;" /usr/share/novnc/vnc_lite.html) \
+    && sed -i "s|\${location\.host}/websockify?token=|\${location.host}\${location.pathname.replace(/[^/]*\$/, '')}websockify?token=|" /usr/share/novnc/login.html \
+    && after=$(grep -cF "\${location.host}\${location.pathname.replace(/[^/]*\$/, '')}websockify?token=" /usr/share/novnc/login.html) \
     && [ "$after" -eq 1 ]
 
 # The browser is already in the image at /opt/patchright, but upstream's first

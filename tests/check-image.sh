@@ -20,16 +20,19 @@ fail() {
     exit 1
 }
 
-patched="url += location.pathname.replace(/[^\\/]*$/, '') + path;"
+relative='location\.pathname\.replace.*websockify\?token='
 
 # The viewer page must build its WebSocket address relative to the page, so it
-# still works behind the console's /connector-login/<token>/ prefix.
-viewer=$(docker run --rm --entrypoint cat "$image" /usr/share/novnc/vnc_lite.html) ||
-    fail "cannot read /usr/share/novnc/vnc_lite.html from $image"
-grep -qF "$patched" <<<"$viewer" ||
-    fail "vnc_lite.html does not contain the relative WebSocket path"
-if grep -qF "url += '/' + path;" <<<"$viewer"; then
-    fail "vnc_lite.html still builds a root WebSocket path"
+# still works behind the console's /connector-login/<token>/ prefix. The page
+# is served under that prefix unchanged, so the string assertions below are
+# what prove the prefixed case: the path is derived from location.pathname and
+# no root-relative WebSocket path remains.
+viewer=$(docker run --rm --entrypoint cat "$image" /usr/share/novnc/login.html) ||
+    fail "cannot read /usr/share/novnc/login.html from $image"
+grep -qE "$relative" <<<"$viewer" ||
+    fail "login.html does not build its WebSocket path relative to the page"
+if grep -qF '${location.host}/websockify' <<<"$viewer"; then
+    fail "login.html still builds a root WebSocket path"
 fi
 
 # The guided login must serve the viewer under the console's runner limits and
@@ -48,7 +51,7 @@ docker run -d --name "$container" \
 
 ready=0
 for _ in $(seq 1 60); do
-    if curl -sf http://127.0.0.1:6080/vnc_lite.html -o "$page"; then
+    if curl -sf http://127.0.0.1:6080/login.html -o "$page"; then
         ready=1
         break
     fi
@@ -63,8 +66,11 @@ if [[ $ready -ne 1 ]]; then
     fail "the login viewer did not answer within 60 s"
 fi
 
-grep -qF "$patched" "$page" ||
-    fail "the served viewer page does not contain the relative WebSocket path"
+grep -qE "$relative" "$page" ||
+    fail "the served login page does not build its WebSocket path relative to the page"
+if grep -qF '${location.host}/websockify' "$page"; then
+    fail "the served login page still builds a root WebSocket path"
+fi
 
 logs=$(docker logs "$container" 2>&1) || fail "cannot read the login viewer logs"
 grep -qF 'http://127.0.0.1:6080/' <<<"$logs" ||
