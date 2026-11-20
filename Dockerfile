@@ -34,6 +34,116 @@ RUN before=$(grep -cF '${location.host}/websockify?token=' /usr/share/novnc/logi
     && after=$(grep -cF "\${location.host}\${location.pathname.replace(/[^/]*\$/, '')}websockify?token=" /usr/share/novnc/login.html) \
     && [ "$after" -eq 1 ]
 
+# The login viewer's virtual screen has to match the browser window, or noVNC
+# scales a small window inside a much larger screen. The upstream supervisor
+# hard-codes 1920x1080; 1280x800 is the size the login window is measured
+# against. The build fails unless the pinned line is the one this replacement
+# expects.
+RUN file=/usr/local/bin/linkedin-mcp-entrypoint \
+    && before=$(grep -cF -- '-screen 0 1920x1080x24' "$file") \
+    && [ "$before" -eq 1 ] \
+    && sed -i 's|-screen 0 1920x1080x24|-screen 0 1280x800x24|' "$file" \
+    && after=$(grep -cF -- '-screen 0 1280x800x24' "$file") \
+    && [ "$after" -eq 1 ]
+
+# The pinned upstream launches a headed browser with no viewport, so VIEWPORT
+# would not size the login window: the window would keep Chromium's default
+# size inside the virtual screen. Use the configured viewport for a headed
+# launch as well; a headless launch already does, and the runner is headless.
+# The build fails unless the pinned line is the one this replacement expects.
+RUN file=/app/.venv/lib/python3.13/site-packages/linkedin_mcp_server/core/browser.py \
+    && before=$(grep -cF '        if self.headless:' "$file") \
+    && [ "$before" -eq 1 ] \
+    && sed -i 's|        if self.headless:|        if self.headless or self.viewport is not None:|' "$file" \
+    && after=$(grep -cF '        if self.headless or self.viewport is not None:' "$file") \
+    && [ "$after" -eq 1 ]
+
+# A browser that cannot start is not a network fault. The pinned upstream maps
+# every launch failure to NetworkError, which the server reports to the
+# assistant as "Network error. Check your connection and try again." Report the
+# browser-unavailable error instead. The build fails unless both pinned lines
+# are the ones these replacements expect.
+RUN file=/app/.venv/lib/python3.13/site-packages/linkedin_mcp_server/core/browser.py \
+    && before_import=$(grep -cF '    BrowserDowngradeError,' "$file") \
+    && [ "$before_import" -eq 1 ] \
+    && sed -i 's|    BrowserDowngradeError,|    BrowserBinaryMissingError,\n    BrowserDowngradeError,|' "$file" \
+    && after_import=$(grep -cF '    BrowserBinaryMissingError,' "$file") \
+    && [ "$after_import" -eq 1 ] \
+    && before_raise=$(grep -cF 'raise NetworkError(' "$file") \
+    && [ "$before_raise" -eq 1 ] \
+    && sed -i 's|raise NetworkError(|raise BrowserBinaryMissingError(|' "$file" \
+    && after_raise=$(grep -cF 'raise BrowserBinaryMissingError(' "$file") \
+    && [ "$after_raise" -eq 1 ] \
+    && before_message=$(grep -cF 'raise BrowserBinaryMissingError(' "$file") \
+    && [ "$before_message" -eq 1 ] \
+    && sed -i '/raise BrowserBinaryMissingError(/,+1 s|f"Failed to start browser: |f"The browser could not start: |' "$file" \
+    && after_message=$(grep -cF 'f"The browser could not start: ' "$file") \
+    && [ "$after_message" -eq 1 ]
+
+# The login rotates the profile before it opens the browser, so a Preferences
+# file written before the supervisor starts is moved into quarantine with the
+# old session. Carry that file into the fresh profile and merge the two
+# password-manager switches there. The build fails unless every pinned anchor
+# is present exactly once.
+RUN python3 - <<'PY'
+from pathlib import Path
+
+path = Path("/app/.venv/lib/python3.13/site-packages/linkedin_mcp_server/setup.py")
+source = path.read_text(encoding="utf-8")
+
+import_marker = "import functools\n"
+assert source.count(import_marker) == 1
+source = source.replace(import_marker, import_marker + "import json\n", 1)
+
+helper_marker = "async def _login_holding_the_profile(\n"
+assert source.count(helper_marker) == 1
+helper = '''def _carry_login_preferences(retired: Path | None, user_data_dir: Path) -> None:
+    """Carry the retired profile's settings into the fresh login profile.
+
+    The login rotates the profile, so a Preferences file written before the
+    rotation moves into quarantine with the old session. Read it from the
+    retired directory, merge the two switches that keep Chromium from offering
+    to store the LinkedIn password, and write it into the fresh profile before
+    the browser opens.
+    """
+    preferences: dict[str, Any] = {}
+    if retired is not None:
+        try:
+            loaded = json.loads(
+                (retired / user_data_dir.name / "Default" / "Preferences").read_text(
+                    encoding="utf-8"
+                )
+            )
+            if isinstance(loaded, dict):
+                preferences = loaded
+        except (OSError, ValueError):
+            pass
+    preferences["credentials_enable_service"] = False
+    profile = preferences.get("profile")
+    if not isinstance(profile, dict):
+        profile = {}
+    profile["password_manager_enabled"] = False
+    preferences["profile"] = profile
+    target = user_data_dir / "Default" / "Preferences"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(preferences), encoding="utf-8")
+    target.chmod(0o600)
+
+
+'''
+source = source.replace(helper_marker, helper + helper_marker, 1)
+
+call_marker = "    retired = await rotate_shielded(user_data_dir)\n"
+assert source.count(call_marker) == 1
+source = source.replace(
+    call_marker,
+    call_marker + "    _carry_login_preferences(retired, user_data_dir)\n",
+    1,
+)
+
+path.write_text(source, encoding="utf-8")
+PY
+
 # The browser is already in the image at /opt/patchright, but upstream's first
 # login writes an install marker into the profile root and runs the installer
 # when it is missing. The console's root is read-only, so that installer cannot
@@ -56,6 +166,15 @@ WORKDIR /home/pwuser
 # browser on Xvfb; with this entrypoint no X server is started, so the server
 # must run headless.
 ENV HEADLESS=true
+
+# Chromium keeps its crash database and caches under the XDG directories. The
+# console's root is read-only, so point them at the writable tmpfs; the profile
+# itself stays on the mounted /home/pwuser/.linkedin-mcp. ENV rather than an
+# export in the entrypoint, so the login and runner paths and `docker exec` all
+# see the same directories. Chromium creates them as it needs them.
+ENV XDG_CONFIG_HOME=/tmp/cerase-xdg/config \
+    XDG_CACHE_HOME=/tmp/cerase-xdg/cache \
+    XDG_DATA_HOME=/tmp/cerase-xdg/data
 
 EXPOSE 3000
 
