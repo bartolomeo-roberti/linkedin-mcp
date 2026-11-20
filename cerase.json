@@ -16,7 +16,8 @@
     "state": {
       "path": "/home/pwuser/.linkedin-mcp",
       "max_mb": 200
-    }
+    },
+    "memory_mb": 2048
   },
   "hosts": [
     "linkedin.com",
