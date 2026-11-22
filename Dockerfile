@@ -7,6 +7,9 @@
 # together and keep the catalogue entry unchanged.
 FROM docker.io/stickerdaniel/linkedin-mcp-server@sha256:8f6b618b9965eb3eb12dd27df861f019ab621a78b408a9b7cd4aaef62954ce97 AS runtime
 
+LABEL org.opencontainers.image.source="https://github.com/bartolomeo-roberti/linkedin-mcp" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
 USER root
 
 # A separate environment for the bridge and the two scripts, so the upstream
