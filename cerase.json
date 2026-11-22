@@ -12,7 +12,7 @@
     "browser"
   ],
   "install": {
-    "image": "ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:15eff3a90132d74cc07ea51bd4450b15cc6f35ba7bf4126d3a4d431e0007c8bc",
+    "image": "ghcr.io/bartolomeo-roberti/linkedin-mcp@sha256:8ea1ee7300585293218e72a955f166461ffc97259f3528fb295a8ba6331bf522",
     "state": {
       "path": "/home/pwuser/.linkedin-mcp",
       "max_mb": 200
