@@ -170,6 +170,11 @@ WORKDIR /home/pwuser
 # must run headless.
 ENV HEADLESS=true
 
+# The image is pinned by digest and updated by the platform, so the upstream's
+# daily PyPI check could only add an update notice nobody can act on to tool
+# results, and its request to pypi.org is refused by the egress.
+ENV LINKEDIN_MCP_CHECK_FOR_UPDATES=off
+
 # Chromium keeps its crash database and caches under the XDG directories. The
 # console's root is read-only, so point them at the writable tmpfs; the profile
 # itself stays on the mounted /home/pwuser/.linkedin-mcp. ENV rather than an
